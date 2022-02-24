@@ -2,7 +2,6 @@ defmodule ExBanking.Users do
   alias ExBanking.Users.Actions
 
   def create_user(name) do
-    # UserWorker.start_link(name: name)
     Actions.create_user(name)
   end
 

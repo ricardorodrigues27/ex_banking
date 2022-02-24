@@ -1,7 +1,8 @@
-defmodule ExBanking.UserBucket do
+defmodule ExBanking.Users.UserBucket do
   use Agent, restart: :transient
 
-  defstruct [:status, :result]
+  @initial_amount_value 0.0
+  @precision_round 2
 
   def start_link(initial_value) do
     name = Keyword.get(initial_value, :name)
@@ -12,7 +13,7 @@ defmodule ExBanking.UserBucket do
     Agent.get(bucket, fn entries ->
       {current_value, _changes} = extract_info(entries[currency])
 
-      {:ok, current_value}
+      {:ok, ensure_float_rounded(current_value)}
     end)
   end
 
@@ -27,7 +28,8 @@ defmodule ExBanking.UserBucket do
     end)
 
     Agent.get(bucket, fn entries ->
-      {:ok, entries[currency].changes[job_pid].result}
+      resulted_amount = entries[currency].changes[job_pid].result |> ensure_float_rounded()
+      {:ok, resulted_amount}
     end)
   end
 
@@ -51,7 +53,7 @@ defmodule ExBanking.UserBucket do
       entries[currency].changes[job_pid]
       |> case do
         %{status: :not_enough_money} -> {:error, :not_enough_money}
-        %{result: value} -> {:ok, value}
+        %{result: value} -> {:ok, ensure_float_rounded(value)}
       end
     end)
   end
@@ -71,11 +73,15 @@ defmodule ExBanking.UserBucket do
     end)
   end
 
-  defp extract_info(nil), do: {0, %{}}
+  defp extract_info(nil), do: {@initial_amount_value, %{}}
 
   defp extract_info(%{current_value: current_value, changes: changes}),
     do: {current_value, changes}
 
   defp insert_info(updated_value, updated_changes),
     do: %{current_value: updated_value, changes: updated_changes}
+
+  defp ensure_float_rounded(amount) do
+    Float.round(amount, @precision_round)
+  end
 end

@@ -1,15 +1,16 @@
 defmodule ExBanking.Users.Actions do
-  alias ExBanking.UserBucket
+  alias ExBanking.Users.UserBucket
 
   @workers_supervisor Application.fetch_env!(:ex_banking, :workers_supervisor)
   @worker_registry Application.fetch_env!(:ex_banking, :worker_registry)
   @bucket_registry Application.fetch_env!(:ex_banking, :bucket_registry)
+  @limit_processes 10
 
   def create_user(name) do
     with {:ok, _pid} <-
            DynamicSupervisor.start_child(
              @workers_supervisor,
-             {Task.Supervisor, name: via_worker(name), max_children: 10}
+             {Task.Supervisor, name: via_worker(name), max_children: @limit_processes}
            ),
          {:ok, _pid} <- UserBucket.start_link(name: via_bucket(name)) do
       :ok
