@@ -18,11 +18,6 @@ defmodule ExBankingTest do
     :ok
   end
 
-  defp generate_user_name do
-    :crypto.strong_rand_bytes(5)
-    |> Base.url_encode64(padding: false)
-  end
-
   defp create_default_user(_context) do
     ExBanking.create_user(@default_user)
 
@@ -205,7 +200,8 @@ defmodule ExBankingTest do
         spawn(fn -> ExBanking.get_balance(first_user, "usd") end)
       end)
 
-      assert {:error, :too_many_requests_to_sender} = ExBanking.send(first_user, second_user, 1, "usd")
+      assert {:error, :too_many_requests_to_sender} =
+               ExBanking.send(first_user, second_user, 1, "usd")
     end
 
     test "should return error when reaches limit processes for the second user", %{
@@ -217,7 +213,8 @@ defmodule ExBankingTest do
         spawn(fn -> ExBanking.get_balance(second_user, "usd") end)
       end)
 
-      assert {:error, :too_many_requests_to_receiver} = ExBanking.send(first_user, second_user, 1, "usd")
+      assert {:error, :too_many_requests_to_receiver} =
+               ExBanking.send(first_user, second_user, 1, "usd")
     end
   end
 end

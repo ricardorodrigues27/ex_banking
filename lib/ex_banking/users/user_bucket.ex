@@ -11,75 +11,75 @@ defmodule ExBanking.Users.UserBucket do
 
   def balance(bucket, currency) do
     Agent.get(bucket, fn entries ->
-      {current_value, _changes} = extract_info(entries[currency])
+      {current_balance, _changes} = extract_info(entries[currency])
 
-      {:ok, ensure_float_rounded(current_value)}
+      {:ok, ensure_float_rounded(current_balance)}
     end)
   end
 
   def deposit(bucket, job_pid, amount, currency) do
     Agent.update(bucket, fn entries ->
-      {current_value, changes} = extract_info(entries[currency])
+      {current_balance, changes} = extract_info(entries[currency])
 
-      updated_value = current_value + amount
-      updated_changes = Map.put(changes, job_pid, %{status: :ok, result: updated_value})
+      updated_balance = current_balance + amount
+      updated_changes = Map.put(changes, job_pid, %{status: :ok, balance: updated_balance})
 
-      Map.put(entries, currency, insert_info(updated_value, updated_changes))
+      Map.put(entries, currency, insert_info(updated_balance, updated_changes))
     end)
 
     Agent.get(bucket, fn entries ->
-      resulted_amount = entries[currency].changes[job_pid].result |> ensure_float_rounded()
+      resulted_amount = entries[currency].changes[job_pid].balance |> ensure_float_rounded()
       {:ok, resulted_amount}
     end)
   end
 
   def withdraw(bucket, job_pid, amount, currency) do
     Agent.update(bucket, fn entries ->
-      {current_value, changes} = extract_info(entries[currency])
+      {current_balance, changes} = extract_info(entries[currency])
 
-      {updated_value, updated_changes} =
-        if(current_value < amount) do
-          {current_value,
-           Map.put(changes, job_pid, %{status: :not_enough_money, result: current_value})}
+      {updated_balance, updated_changes} =
+        if(current_balance < amount) do
+          {current_balance,
+           Map.put(changes, job_pid, %{status: :not_enough_money, balance: current_balance})}
         else
-          updated_value = current_value - amount
-          {updated_value, Map.put(changes, job_pid, %{status: :ok, result: updated_value})}
+          updated_balance = current_balance - amount
+          {updated_balance, Map.put(changes, job_pid, %{status: :ok, balance: updated_balance})}
         end
 
-      Map.put(entries, currency, insert_info(updated_value, updated_changes))
+      Map.put(entries, currency, insert_info(updated_balance, updated_changes))
     end)
 
     Agent.get(bucket, fn entries ->
       entries[currency].changes[job_pid]
       |> case do
         %{status: :not_enough_money} -> {:error, :not_enough_money}
-        %{result: value} -> {:ok, ensure_float_rounded(value)}
+        %{balance: value} -> {:ok, ensure_float_rounded(value)}
       end
     end)
   end
 
   def cancel_withdraw(bucket, job_pid, amount, currency) do
     Agent.cast(bucket, fn entries ->
-      {current_value, changes} = extract_info(entries[currency])
+      {current_balance, changes} = extract_info(entries[currency])
 
       {_changes, updated_changes} =
         Map.get_and_update(changes, job_pid, fn current_changes ->
-          {current_value, Map.put(current_changes, :status, :sender_unavailable)}
+          {current_balance, Map.put(current_changes, :status, :sender_unavailable)}
         end)
 
-      updated_value = current_value + amount
+      updated_balance = current_balance + amount
 
-      Map.put(entries, currency, insert_info(updated_value, updated_changes))
+      Map.put(entries, currency, insert_info(updated_balance, updated_changes))
     end)
   end
 
   defp extract_info(nil), do: {@initial_amount_value, %{}}
 
-  defp extract_info(%{current_value: current_value, changes: changes}),
-    do: {current_value, changes}
+  defp extract_info(%{current_balance: current_balance, changes: changes}),
+    do: {current_balance, changes}
 
-  defp insert_info(updated_value, updated_changes),
-    do: %{current_value: updated_value, changes: updated_changes}
+  defp insert_info(updated_balance, updated_changes),
+    do: %{current_balance: updated_balance, changes: updated_changes}
 
   defp ensure_float_rounded(amount) do
     Float.round(amount, @precision_round)
