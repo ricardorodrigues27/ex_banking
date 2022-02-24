@@ -6,35 +6,35 @@ defmodule ExBanking.Users.Actions do
   @bucket_registry Application.fetch_env!(:ex_banking, :bucket_registry)
   @limit_processes 10
 
-  def create_user(name) do
+  def create_user(user) do
     with {:ok, _pid} <-
            DynamicSupervisor.start_child(
              @workers_supervisor,
-             {Task.Supervisor, name: via_worker(name), max_children: @limit_processes}
+             {Task.Supervisor, name: via_worker(user), max_children: @limit_processes}
            ),
-         {:ok, _pid} <- UserBucket.start_link(name: via_bucket(name)) do
+         {:ok, _pid} <- UserBucket.start_link(name: via_bucket(user)) do
       :ok
     else
       _ -> {:error, :user_already_exists}
     end
   end
 
-  def get_balance(name, currency) do
-    name
+  def get_balance(user, currency) do
+    user
     |> check_user_exists()
-    |> start_task(:get_balance, name: name, currency: currency)
+    |> start_task(:get_balance, user: user, currency: currency)
   end
 
-  def deposit(name, amount, currency) do
-    name
+  def deposit(user, amount, currency) do
+    user
     |> check_user_exists()
-    |> start_task(:deposit, name: name, amount: amount, currency: currency)
+    |> start_task(:deposit, user: user, amount: amount, currency: currency)
   end
 
-  def withdraw(name, amount, currency) do
-    name
+  def withdraw(user, amount, currency) do
+    user
     |> check_user_exists()
-    |> start_task(:withdraw, name: name, amount: amount, currency: currency)
+    |> start_task(:withdraw, user: user, amount: amount, currency: currency)
   end
 
   def send_to(from_user, to_user, amount, currency) do
@@ -74,31 +74,31 @@ defmodule ExBanking.Users.Actions do
   defp start_task({:error, error}, _action, _args), do: {:error, error}
 
   defp task(:get_balance, args) do
-    name = Keyword.fetch!(args, :name)
+    user = Keyword.fetch!(args, :user)
     currency = Keyword.fetch!(args, :currency)
     parent = Keyword.fetch!(args, :parent)
 
-    result = UserBucket.balance(via_bucket(name), currency)
+    result = UserBucket.balance(via_bucket(user), currency)
     send(parent, result)
   end
 
   defp task(:deposit, args) do
-    name = Keyword.fetch!(args, :name)
+    user = Keyword.fetch!(args, :user)
     amount = Keyword.fetch!(args, :amount)
     currency = Keyword.fetch!(args, :currency)
     parent = Keyword.fetch!(args, :parent)
 
-    result = UserBucket.deposit(via_bucket(name), self(), amount, currency)
+    result = UserBucket.deposit(via_bucket(user), self(), amount, currency)
     send(parent, result)
   end
 
   defp task(:withdraw, args) do
-    name = Keyword.fetch!(args, :name)
+    user = Keyword.fetch!(args, :user)
     amount = Keyword.fetch!(args, :amount)
     currency = Keyword.fetch!(args, :currency)
     parent = Keyword.fetch!(args, :parent)
 
-    result = UserBucket.withdraw(via_bucket(name), self(), amount, currency)
+    result = UserBucket.withdraw(via_bucket(user), self(), amount, currency)
     send(parent, result)
   end
 
@@ -162,11 +162,11 @@ defmodule ExBanking.Users.Actions do
 
   defp handle_response(_action, result), do: result
 
-  defp via_worker(name) do
-    {:via, Registry, {@worker_registry, name}}
+  defp via_worker(user) do
+    {:via, Registry, {@worker_registry, user}}
   end
 
-  defp via_bucket(name) do
-    {:via, Registry, {@bucket_registry, name}}
+  defp via_bucket(user) do
+    {:via, Registry, {@bucket_registry, user}}
   end
 end
