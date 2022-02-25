@@ -44,7 +44,7 @@ defmodule ExBanking do
   def deposit(user, amount, currency)
       when is_number(amount) and amount >= 0 and is_binary(user) and is_binary(currency) do
     amount
-    |> ensure_float()
+    |> ensure_decimal()
     |> then(&Users.deposit(user, &1, currency))
   end
 
@@ -59,7 +59,7 @@ defmodule ExBanking do
   def withdraw(user, amount, currency)
       when is_number(amount) and amount >= 0 and is_binary(user) and is_binary(currency) do
     amount
-    |> ensure_float()
+    |> ensure_decimal()
     |> then(&Users.withdraw(user, &1, currency))
   end
 
@@ -83,7 +83,7 @@ defmodule ExBanking do
       when is_number(amount) and amount >= 0 and is_binary(from_user) and is_binary(to_user) and
              is_binary(currency) do
     amount
-    |> ensure_float()
+    |> ensure_decimal()
     |> then(&Users.send(from_user, to_user, &1, currency))
   end
 
@@ -91,11 +91,10 @@ defmodule ExBanking do
 
   defp wrong_arguments, do: {:error, :wrong_arguments}
 
-  @spec ensure_float(amount :: number()) :: float()
-  defp ensure_float(amount)
-  defp ensure_float(amount) when is_float(amount), do: amount
-
-  defp ensure_float(amount) when is_integer(amount) do
-    amount |> to_string() |> Float.parse() |> elem(0)
+  @spec ensure_decimal(amount :: number()) :: Decimal.t()
+  defp ensure_decimal(amount) do
+    amount
+    |> Decimal.cast()
+    |> elem(1)
   end
 end

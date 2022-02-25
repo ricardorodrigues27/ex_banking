@@ -1,7 +1,7 @@
 defmodule ExBanking.Users.UserBucket do
   use Agent, restart: :transient
 
-  @initial_amount_value 0.0
+  @initial_amount_value Decimal.new("0")
   @precision_round 2
 
   def start_link(initial_value) do
@@ -21,7 +21,7 @@ defmodule ExBanking.Users.UserBucket do
     Agent.update(bucket, fn entries ->
       {current_balance, changes} = extract_info(entries[currency])
 
-      updated_balance = current_balance + amount
+      updated_balance = Decimal.add(current_balance, amount)
       updated_changes = Map.put(changes, job_pid, %{status: :ok, balance: updated_balance})
 
       Map.put(entries, currency, insert_info(updated_balance, updated_changes))
@@ -38,11 +38,11 @@ defmodule ExBanking.Users.UserBucket do
       {current_balance, changes} = extract_info(entries[currency])
 
       {updated_balance, updated_changes} =
-        if(current_balance < amount) do
+        if(Decimal.lt?(current_balance, amount)) do
           {current_balance,
            Map.put(changes, job_pid, %{status: :not_enough_money, balance: current_balance})}
         else
-          updated_balance = current_balance - amount
+          updated_balance = Decimal.sub(current_balance, amount)
           {updated_balance, Map.put(changes, job_pid, %{status: :ok, balance: updated_balance})}
         end
 
@@ -67,7 +67,7 @@ defmodule ExBanking.Users.UserBucket do
           {current_balance, Map.put(current_changes, :status, :sender_unavailable)}
         end)
 
-      updated_balance = current_balance + amount
+      updated_balance = Decimal.add(current_balance, amount)
 
       Map.put(entries, currency, insert_info(updated_balance, updated_changes))
     end)
@@ -81,7 +81,10 @@ defmodule ExBanking.Users.UserBucket do
   defp insert_info(updated_balance, updated_changes),
     do: %{current_balance: updated_balance, changes: updated_changes}
 
+  @spec ensure_float_rounded(amount :: Decimal.t()) :: float()
   defp ensure_float_rounded(amount) do
-    Float.round(amount, @precision_round)
+    amount
+    |> Decimal.round(@precision_round)
+    |> Decimal.to_float()
   end
 end

@@ -15,11 +15,11 @@ Also when creating the user, a bucket (Agent) is started that will store the use
 ``` elixir
 %{
   "#{currency}" => %{
-    current_balance: Float,
+    current_balance: Decimal,
     changes: %{
       "#{PID}" => %{
         status: :ok | :not_enough_money | :sender_unavailable,
-        balance: Float (the balance at the time of the operation)
+        balance: Decimal (the balance at the time of the operation)
       }
     }
   }
